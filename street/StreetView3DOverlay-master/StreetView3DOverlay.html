@@ -1,0 +1,249 @@
+<!--
+    StreetViewOverlay_EINA.html - 3D Data on Google Street View Visualization
+    Copyright (C) 2013 Rubén Béjar {http://www.rubenbejar.com/}
+    
+    Permission is hereby granted, free of charge, to any person obtaining a copy of
+    this software and associated documentation files (the "Software"), to deal in
+    the Software without restriction, including without limitation the rights to
+    use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+    the Software, and to permit persons to whom the Software is furnished to do so,
+    subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+    FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+    IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Overlays within Street View</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #map {
+            height: 100%;
+        }
+        #floating-panel {
+            position: absolute;
+            top: 10px;
+            left: 25%;
+            z-index: 5;
+            background-color: #fff;
+            padding: 5px;
+            border: 1px solid #999;
+            text-align: center;
+            font-family: 'Roboto','sans-serif';
+            line-height: 30px;
+            padding-left: 10px;
+        }
+
+        #floating-panel {
+            margin-left: -100px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="floating-panel">
+    <input type="button" value="Toggle Street View" onclick="toggleStreetView();"></input>
+    <input type="button" value="Crime 1" onclick="initMap(0);"></input>
+    <input type="button" value="Crime 2" onclick="initMap(1);"></input>
+    <input type="button" value="3D" onclick="cena();"></input>
+
+
+</div>
+
+
+<div id="streetviewpano" style="position: absolute; top:0; bottom:0; left:0; right:0; z-index: 0">
+</div>
+
+<div id="container" style="position: absolute; top:0; bottom:20px; left: 0; right: 0; z-index: 0;">
+</div>
+
+<div id="map"></div>
+
+		<!-- We do not use a sensor to establish the location of the user:
+		     must make explicit, license issue -->
+        <script type="text/javascript" src="https://maps.google.com/maps/api/js?sensor=false"></script>
+
+        <script src="lib/jquery-2.0.3.js"></script>
+        <script src="lib/jquery.mousewheel.js"></script>
+		<script src="lib/three.min.js"></script>
+		<script src="lib/Detector.js"></script>
+		<script src="src/streetviewoverlay.js"></script>
+        <script src="lib/ColladaLoader.js"></script>
+
+		<script>
+
+            var panorama;
+
+            var jCenaCrime1 = {"categoria": "roubo","denuncias":[{"id":"1","fonte":"190","hora":"2015-05-29 14:04:57","gps":["-22.2208","-49.9486"],
+                "origemMensagem":"14 3434-3434","texto":"boa noite acaba de acontecer um roubo de carro aqui na domingos setti com a luis vives dois caras de moto apontaram uma arma para o motorista de um mercedes preto e mandaram sair do carro sem levar nada os dois fugiram acelerando em direcao ao metro klabin um deles usava uma camiseta vermelha e o outro tinha um bone preto",
+                "tempo":[{"quantidade":["0"],"tipo":["Agora"]}],"criminoso":{"sexo":"M","status":"fugindo","fugaTipo":"acelerando","fugaPara":"metro klabin",
+                    "corVestimenta":["vermelha","preta"],"arma":"arma","palavaraRef":"caras","veiculo":"moto","vestimenta":["camiseta","bone"]},
+                "objeto":{"descricao":"carro","marca":"mercedes"},"vitima":{"palavraRef":"motorista"},"local":{"logradouro":"domingos setti;luis vives dois"},
+                "eventos":[]}]}
+
+            function initMap(op) {
+
+                if(op == 0) {
+                    var latitude = parseFloat(jCenaCrime1.denuncias[0].gps[0]);
+                    var longitude = parseFloat(jCenaCrime1.denuncias[0].gps[1]);
+                }
+
+                else if (op == 1)
+                {
+                    var latitude = 40.729884;
+                    var longitude = -73.991428;
+                }
+
+
+                var astorPlace = {lat: latitude, lng: longitude};
+
+                // Set up the map
+                var map = new google.maps.Map(document.getElementById('map'), {
+                    center: astorPlace,
+                    zoom: 18,
+                    streetViewControl: false
+                });
+
+                var Csexo = jCenaCrime1.denuncias[op].criminoso.sexo;
+                var Cstatus = jCenaCrime1.denuncias[op].criminoso.status;
+                var CfugaTipo = jCenaCrime1.denuncias[op].criminoso.fugaTipo;
+                var CfugaPara = jCenaCrime1.denuncias[op].criminoso.fugaPara;
+                var CcorVestimenta = jCenaCrime1.denuncias[op].criminoso.corVestimenta;
+                var Carma = jCenaCrime1.denuncias[op].criminoso.arma;
+                var CpalavaraRef = jCenaCrime1.denuncias[op].criminoso.palavaraRef;
+                var CVeiculo = jCenaCrime1.denuncias[op].criminoso.veiculo;
+                var CVestimenta = jCenaCrime1.denuncias[op].criminoso.vestimenta;
+
+                var bandidoMarker = new google.maps.Marker({
+                    position: {lat: -22.220401, lng: -49.948691},
+                    map: map,
+                    icon: 'https://wiki.the-west.com.pt/images/0/09/Cachecol_do_bandido.png',
+                    title: 'Criminoso ' + 'Sexo: '+Csexo + '' +
+                    '\n' + 'Status: '+ Cstatus + '\n' + 'Cor Vestimenta: '+ CcorVestimenta + '\n' + 'Fuga Tipo: ' + CfugaTipo + '\n' + 'Fuga Para: '
+                    + CfugaPara + '\n' + 'Arma: ' + Carma + '\n' + 'Palavra Ref: ' + CpalavaraRef + '\n' + 'Veiculo de Fuga: ' + CVeiculo + '\n' +
+                    'Vestimenta: ' + CVestimenta
+                });
+
+                panorama = map.getStreetView();
+                panorama.setPosition(astorPlace);
+                panorama.setPov(/** @type {google.maps.StreetViewPov} */({
+                    heading: 265,
+                    pitch: 0
+                }));
+            }
+
+            var jsonLoader = new THREE.JSONLoader();
+            jsonLoader.load("model3d/criminoso.js", loadWheel);
+
+
+            var METERS2DEGREES = 0.0000125;
+            var objectPosition = [-22.2207069, -49.9493029];
+
+            function toggleStreetView() {
+
+                var toggle = panorama.getVisible();
+                if (toggle == false) {
+                    panorama.setVisible(true);
+                } else {
+                    panorama.setVisible(false);
+                }
+            }
+
+    // DO NOT USE THIS VALUE FOR
+    // ANY REAL DATA, IT IS JUST A QUICK, SIMPLISTIC, PRETTY BAD
+    // APPROXIMATION
+
+    //41.684792     -0.888989
+
+    // On the parking lot behind Ada Byron building
+
+
+    // Translates degrees to meters. It is just a hack, not a proper projection.
+    // originLat and originLon should be the "center" of our area of interest or
+    // close to it
+
+    function hackMapProjection(lat, lon, originLat, originLon) {
+        var lonCorrection = 1.5;
+        var rMajor = 6378137.0;
+
+        function lonToX(lon) {
+            return rMajor * (lon * Math.PI / 180);
+        }
+
+        function latToY(lat) {
+            if (lat === 0) {
+                return 0;
+            } else {
+                return rMajor * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2));
+            }
+        }
+
+        var x = lonToX(lon - originLon) / lonCorrection;
+        var y = latToY(lat - originLat);
+        return {'x': x, 'y': y};
+    }
+
+    // Origin is the position of our 3d object
+    function latLon2ThreeMeters(lat, lon) {
+        var xy = hackMapProjection(lat, lon, objectPosition[0], objectPosition[1]);
+        return {'x': xy.x, 'y': 0, 'z': -xy.y};
+    }
+
+
+    function loadWheel(geometry, materials) {
+        var mesh;
+        mesh = new THREE.Mesh(geometry,
+                new THREE.MeshFaceMaterial(materials));
+
+        meshPos = latLon2ThreeMeters(objectPosition[0], objectPosition[1]);
+
+        mesh.geometry.computeBoundingBox();
+
+        var xsize = mesh.geometry.boundingBox.max.x - mesh.geometry.boundingBox.min.x;
+        var ysize = mesh.geometry.boundingBox.max.y - mesh.geometry.boundingBox.min.y;
+        var zsize = mesh.geometry.boundingBox.max.z - mesh.geometry.boundingBox.min.z;
+
+        // Sizes in meters
+        var desiredXSize = 10;
+        var desiredYSize = 30;
+        var desiredZSize = 30;
+
+        mesh.scale.x = 5;
+        mesh.scale.y = 5;
+        mesh.scale.z = 5;
+
+        mesh.position.x = meshPos.x - 10;
+        mesh.position.y = meshPos.y - 4; // the parking lot is sligthly under the street level
+        mesh.position.z = meshPos.z - 5;
+
+        mesh.rotation.y = 310;
+
+        // For shadows (given the right ligths, and that renderer enables them)
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
+        var streetViewOverlay = StreetViewOverlay();
+        // 41.684196,-0.888992 is a street close to the parking lot behind Ada Byron building
+        streetViewOverlay.load({
+            streetView: true,
+            objects3D: true,
+            webGL: true
+        }, mesh, -22.2203639, -49.9485597);
+    }
+		</script>
+	</body>
+</html>
